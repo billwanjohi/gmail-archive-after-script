@@ -1,4 +1,5 @@
 {
-  "scriptId": "<your_script_id>",
-  "rootDir": "dist"
+  "projectId": "archive-after",
+  "rootDir": "dist",
+  "scriptId": "1_5xpDkCh9vWfwJR4yLTAMX36vnyxdRLj8UQFvqHaKMacpJDWXCpPQmdT"
 }

@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
+    "downlevelIteration": true,
+    "esModuleInterop": true,
+    "lib": ["es2019"],
+    "module": "es2015",
     "sourceMap": true,
-    "target": "es5",
-    "module": "es2015"
+    "strict": true,
+    "target": "es5"
   }
 }

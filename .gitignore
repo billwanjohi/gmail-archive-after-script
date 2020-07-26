@@ -13,3 +13,7 @@ node_modules/
 
 # Build directory
 dist/
+
+# Secrets
+creds.json
+.clasprc.json
