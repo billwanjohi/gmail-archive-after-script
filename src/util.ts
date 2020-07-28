@@ -1,7 +1,6 @@
 import { Maybe, Just } from "purify-ts/Maybe";
 import { Either, Left, Right } from "purify-ts/Either";
 import { List } from "purify-ts/List";
-import { compare } from "purify-ts/Function";
 
 import { Directive } from "./Directive";
 
@@ -100,13 +99,11 @@ export const labelAndArchiveThreads = (
       }))
   );
   const archivalFailures = Either.lefts(archivalResults).map(
-    ({ error, either }) => {
-      return {
-        error,
-        delabeled: Either.rights(either.slice()).length,
-        delabelingErrors: Either.lefts(either.slice()),
-      };
-    }
+    ({ error, either }) => ({
+      error,
+      delabeled: Either.rights(either.slice()).length,
+      delabelingErrors: Either.lefts(either.slice()),
+    })
   );
   const archived = List.sum(Either.rights(archivalResults));
   return { archived, labelingErrors, archivalFailures };
@@ -135,64 +132,53 @@ export const labelSearchTerm = (d: Directive): string =>
 const getInboxThreads = (labelSearchTerm: string): readonly Thread[] =>
   GmailApp.search(`label: inbox ${labelSearchTerm}`);
 
+type BaseThread = { getLastMessageDate(): BaseDate };
+type BaseDate = { getTime(): number };
+
 type ThreadFilter = (
   d: Directive,
-  ts: readonly Thread[]
-) => Either<Error, readonly Thread[]>;
+  ts: readonly BaseThread[]
+) => Either<Error, readonly BaseThread[]>;
 
-const getLessRecentThreads: ThreadFilter = (
-  { cutoff, measure, name }: Directive,
-  threadsInInbox: readonly Thread[]
-): Either<Error, readonly Thread[]> => {
-  const foo =
-    cutoff < 1
-      ? Left(Error(`${measure} ${name} has invalid cutoff: ${cutoff}`))
-      : Right(List.sort(compare, threadsInInbox.slice().slice(0, -cutoff)));
-  return foo;
-};
+const lastActive = (t: BaseThread): number => t.getLastMessageDate().getTime();
 
-const daysSinceLastMessage = (thread: Thread): number => {
-  const oneDayInMilliseconds = 1000 * 60 * 60 * 24; // milli, sec, min, hour
-  return (
-    (new Date().getTime() - thread.getLastMessageDate().getTime()) /
-    oneDayInMilliseconds
-  );
-};
+export const getLessRecentThreads: ThreadFilter = (
+  { cutoff, measure, name },
+  threadsInInbox
+) =>
+  cutoff < 1
+    ? Left(Error(`${measure} ${name} has invalid cutoff: ${cutoff}`))
+    : Right(
+        threadsInInbox
+          .slice()
+          // TODO: find a sort function with only one arg, for the property we want to compare
+          // e.g. https://gcanti.github.io/fp-ts/modules/Array.ts.html#sortby
+          .sort((a, b) => lastActive(a) - lastActive(b))
+          .slice(0, -cutoff)
+      );
 
-const getTooOldThreads: ThreadFilter = (
-  { cutoff }: Directive,
-  threadsInInbox: readonly Thread[]
-): Either<Error, readonly Thread[]> =>
+export const oneDayInMilliseconds = 1000 * 60 * 60 * 24; // milli, sec, min, hour
+
+export const daysSinceLastMessage = (thread: BaseThread): number =>
+  (new Date().getTime() - thread.getLastMessageDate().getTime()) /
+  oneDayInMilliseconds;
+
+export const getTooOldThreads: ThreadFilter = ({ cutoff }, threadsInInbox) =>
   Right(threadsInInbox.filter((t) => daysSinceLastMessage(t) > cutoff));
 
-const doNothing: ThreadFilter = (
-  _d: Directive,
-  _ts: readonly Thread[]
-): Either<Error, readonly Thread[]> => Right([]);
+const doNothing: ThreadFilter = (_d, _ts) => Right([]);
 
-const getThreadFilter = ({ measure }: Directive): ThreadFilter => {
-  return measure == "days-elapsed"
+const getThreadFilter = ({ measure }: Directive): ThreadFilter =>
+  measure == "days-elapsed"
     ? getTooOldThreads
     : measure == "more-recent"
     ? getLessRecentThreads
     : doNothing;
-};
 
 export const getFilteredThreadsFromDirective = (
   d: Directive
 ): Either<Error, readonly Thread[]> =>
-  getThreadFilter(d)(d, getInboxThreads(labelSearchTerm(d)));
-
-export const getArchivableThreadsFromLabels = (
-  labels: readonly Label[]
-): readonly Either<
-  Error,
-  { readonly directive: Directive; readonly threads: readonly Thread[] }
->[] => {
-  return getDirectives(labels).map((d) => {
-    return getFilteredThreadsFromDirective(d).map((threads) => ({
-      directive: d,
-      threads,
-    }));
-  });
-};
+  getThreadFilter(d)(d, getInboxThreads(labelSearchTerm(d))) as Either<
+    Error,
+    readonly Thread[]
+  >;

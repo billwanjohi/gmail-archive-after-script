@@ -12,3 +12,5 @@
 
 - do some property-based testing
 - organize code
+- enums
+- remove eslint exceptions

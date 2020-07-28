@@ -1,14 +1,16 @@
-import { getDirectives, calcSliceParams } from "./util";
-import { MockLabel } from "./MockLabel";
+import {
+  getDirectives,
+  getLessRecentThreads,
+  getTooOldThreads,
+  calcSliceParams,
+  oneDayInMilliseconds,
+  daysSinceLastMessage,
+} from "./util";
+import { MockDate, MockLabel, MockThread } from "./MockLabel";
 /* eslint-disable functional/functional-parameters,functional/no-expression-statement */
 jest.unmock("./util");
 
 describe("util", () => {
-  const moreRecentDirective = {
-    cutoff: 1,
-    measure: "more-recent",
-    name: "hacker-news",
-  };
   describe("calcSliceParams()", () => {
     it("is small", () => {
       const sliceable = [...Array(75).keys()];
@@ -27,6 +29,16 @@ describe("util", () => {
       ]);
     });
   });
+  const moreRecentDirective = {
+    cutoff: 1,
+    measure: "more-recent",
+    name: "hacker-news",
+  };
+  const daysElapsedDirective = {
+    cutoff: 121,
+    measure: "days-elapsed",
+    name: "slick-deals",
+  };
   describe("getDirectives()", () => {
     it("has some labels", () => {
       const labels = [
@@ -37,10 +49,44 @@ describe("util", () => {
         "archive-after/more-recent/1/hacker-news",
       ].map((n) => new MockLabel(n));
       expect(getDirectives(labels)).toStrictEqual([
-        { cutoff: 121, measure: "days-elapsed", name: "slick-deals" },
+        daysElapsedDirective,
         { cutoff: 1, measure: "foo", name: "bar" },
         moreRecentDirective,
       ]);
+    });
+  });
+  describe("getLessRecentThreads", () => {
+    it("does the right thing", () => {
+      const threads = [35, 444, 13, 512, 22].map(
+        (t) => new MockThread(new MockDate(t))
+      );
+      const filteredThreads = getLessRecentThreads(
+        moreRecentDirective,
+        threads
+      ).unsafeCoerce();
+      expect(filteredThreads.length).toBe(4);
+      expect(
+        filteredThreads.map((t) => t.getLastMessageDate().getTime())
+      ).toStrictEqual([13, 22, 35, 444]);
+      expect(filteredThreads as readonly MockThread[]).toMatchObject(
+        [13, 22, 35, 444].map((t) => ({ date: { value: t } }))
+      );
+    });
+  });
+  describe("daysSinceLastMessage", () => {
+    const threadXDaysAgo = (daysAgo: number): MockThread =>
+      new MockThread(
+        new MockDate(new Date().getTime() - daysAgo * oneDayInMilliseconds)
+      );
+    const t = threadXDaysAgo(3);
+    it("has good seed data", () => {
+      expect(Math.floor(daysSinceLastMessage(t))).toBe(3);
+    });
+    it("filters the right message", () => {
+      const threads = [35, 444, 13, 512, 22].map(threadXDaysAgo);
+      expect(
+        getTooOldThreads(daysElapsedDirective, threads).unsafeCoerce()
+      ).toStrictEqual([threads[1], threads[3]]);
     });
   });
 });

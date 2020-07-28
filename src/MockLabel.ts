@@ -8,3 +8,23 @@ export class MockLabel {
     return this.name;
   }
 }
+
+export class MockThread {
+  readonly date: MockDate;
+  constructor(date: MockDate) {
+    this.date = date;
+  }
+  getLastMessageDate(): MockDate {
+    return this.date;
+  }
+}
+
+export class MockDate {
+  readonly value: number;
+  constructor(value: number) {
+    this.value = value;
+  }
+  getTime(): number {
+    return this.value;
+  }
+}

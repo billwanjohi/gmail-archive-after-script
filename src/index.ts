@@ -1,7 +1,11 @@
 import { Either } from "purify-ts/Either";
 import { NonEmptyList } from "purify-ts/NonEmptyList";
 
-import { getArchivableThreadsFromLabels, labelAndArchiveThreads } from "./util";
+import {
+  getDirectives,
+  getFilteredThreadsFromDirective,
+  labelAndArchiveThreads,
+} from "./util";
 
 /* eslint-disable functional/functional-parameters,functional/immutable-data,functional/no-expression-statement,functional/no-return-void */
 
@@ -9,9 +13,14 @@ import { getArchivableThreadsFromLabels, labelAndArchiveThreads } from "./util";
 declare let global: any;
 
 const getLabels = (debug = false): void => {
-  const foo = getArchivableThreadsFromLabels(GmailApp.getUserLabels());
-  Either.lefts(foo.slice()).forEach((e) => Logger.log(e));
-  const labelThreads = Either.rights(foo.slice());
+  const directives = getDirectives(GmailApp.getUserLabels()).map((d) =>
+    getFilteredThreadsFromDirective(d).map((threads) => ({
+      directive: d,
+      threads,
+    }))
+  );
+  Either.lefts(directives.slice()).forEach((e) => Logger.log(e));
+  const labelThreads = Either.rights(directives.slice());
   labelThreads.forEach(({ directive, threads }) => {
     Logger.log(
       `label ${directive.name} scheduled to delete ${threads.length} threads`
