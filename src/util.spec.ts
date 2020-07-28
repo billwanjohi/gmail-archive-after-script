@@ -1,3 +1,4 @@
+import { MockDate, MockLabel, MockThread } from "./types";
 import {
   getDirectives,
   getLessRecentThreads,
@@ -6,7 +7,7 @@ import {
   oneDayInMilliseconds,
   daysSinceLastMessage,
 } from "./util";
-import { MockDate, MockLabel, MockThread } from "./MockLabel";
+
 /* eslint-disable functional/functional-parameters,functional/no-expression-statement */
 jest.unmock("./util");
 

@@ -1,11 +1,15 @@
-import { Maybe, Just } from "purify-ts/Maybe";
 import { Either, Left, Right } from "purify-ts/Either";
 import { List } from "purify-ts/List";
+import { Maybe, Just } from "purify-ts/Maybe";
 
-import { Directive } from "./Directive";
-
-type Label = GoogleAppsScript.Gmail.GmailLabel;
-type Thread = GoogleAppsScript.Gmail.GmailThread;
+import {
+  BaseLabel,
+  BaseThread,
+  Directive,
+  Label,
+  Thread,
+  ThreadFilter,
+} from "./types";
 
 export const calcSliceParams = (
   batchSize: number,
@@ -111,10 +115,6 @@ export const labelAndArchiveThreads = (
 
 const archivePattern = /archive-after\/(?<measure>[^/]+)\/(?<cutoff>\d+)\/(?<name>[^/]+)$/u;
 
-// We need this for unit testing
-// eslint-disable-next-line functional/no-method-signature
-type BaseLabel = { getName(): string };
-
 export const getDirective = (label: BaseLabel): Maybe<Directive> =>
   Maybe.fromNullable(archivePattern.exec(label.getName()))
     .chainNullable((m) => m.groups)
@@ -132,14 +132,6 @@ export const labelSearchTerm = (d: Directive): string =>
 const getInboxThreads = (labelSearchTerm: string): readonly Thread[] =>
   GmailApp.search(`label: inbox ${labelSearchTerm}`);
 
-type BaseThread = { getLastMessageDate(): BaseDate };
-type BaseDate = { getTime(): number };
-
-type ThreadFilter = (
-  d: Directive,
-  ts: readonly BaseThread[]
-) => Either<Error, readonly BaseThread[]>;
-
 const lastActive = (t: BaseThread): number => t.getLastMessageDate().getTime();
 
 export const getLessRecentThreads: ThreadFilter = (
@@ -151,7 +143,7 @@ export const getLessRecentThreads: ThreadFilter = (
     : Right(
         threadsInInbox
           .slice()
-          // TODO: find a sort function with only one arg, for the property we want to compare
+          // TODO: use a sortby function with only one arg, for the property we want to compare
           // e.g. https://gcanti.github.io/fp-ts/modules/Array.ts.html#sortby
           .sort((a, b) => lastActive(a) - lastActive(b))
           .slice(0, -cutoff)
