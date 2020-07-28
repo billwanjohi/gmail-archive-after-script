@@ -9,9 +9,6 @@ import {
 
 /* eslint-disable functional/functional-parameters,functional/immutable-data,functional/no-expression-statement,functional/no-return-void */
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any,functional/no-let
-declare let global: any;
-
 const getLabels = (debug = false): void => {
   const directives = getDirectives(GmailApp.getUserLabels()).map((d) =>
     getFilteredThreadsFromDirective(d).map((threads) => ({
@@ -47,6 +44,9 @@ const getLabels = (debug = false): void => {
     });
   }
 };
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any,functional/no-let
+declare let global: any;
 
 global.getLabels = (): void => {
   getLabels();
