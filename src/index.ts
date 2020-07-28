@@ -1,33 +1,41 @@
-import { getArchivableThreadsFromLabels, sliceParams } from './util';
-import { Thread } from './Thread';
-import { Label } from './Label';
+import { Either } from "purify-ts/Either";
+import { NonEmptyList } from "purify-ts/NonEmptyList";
+
+import { getArchivableThreadsFromLabels, labelAndArchiveThreads } from "./util";
 
 /* eslint-disable functional/functional-parameters,functional/immutable-data,functional/no-expression-statement,functional/no-return-void */
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any,functional/no-let
 declare let global: any;
 
-// TODO: if archive fails, remove auto-archived label
-export const labelAndArchiveThreads = (newLabel: Label, threads: readonly Thread[]): void => {
-  threads.forEach((t) => t.addLabel(newLabel));
-  const apiMaxThreads = 100;
-  sliceParams(apiMaxThreads, threads).forEach(({ start, end }) =>
-    GmailApp.moveThreadsToArchive(threads.slice(start, end))
-  );
-};
-
 const getLabels = (debug = false): void => {
-  const newLabel = GmailApp.getUserLabelByName('archived-via-script');
-  const labelThreads = getArchivableThreadsFromLabels(GmailApp.getUserLabels());
+  const foo = getArchivableThreadsFromLabels(GmailApp.getUserLabels());
+  Either.lefts(foo.slice()).forEach((e) => Logger.log(e));
+  const labelThreads = Either.rights(foo.slice());
   labelThreads.forEach(({ directive, threads }) => {
-    Logger.log(`label ${directive.name} scheduled to delete ${threads.length} threads`);
+    Logger.log(
+      `label ${directive.name} scheduled to delete ${threads.length} threads`
+    );
   });
   const allThreads = labelThreads.flatMap((o) => o.threads);
   // eslint-disable-next-line functional/no-conditional-statement
   if (debug == false) {
-    Logger.log(`beginning archival`);
-    labelAndArchiveThreads(newLabel, allThreads);
-    Logger.log(`archived ${allThreads.length} threads`);
+    Logger.log("beginning archival");
+    const results = labelAndArchiveThreads(allThreads);
+    Logger.log(`successfully archived ${results.archived} threads`);
+    results.labelingErrors.forEach((e) => {
+      Logger.log(`archival aborted due to error: ${e.message}`);
+    });
+    results.archivalFailures.forEach((f) => {
+      Logger.log(`bulk archive failed: ${f.error}`);
+      Logger.log(`${f.delabeled} were delabeled properly, can try again`);
+      NonEmptyList.fromArray(f.delabelingErrors.slice()).map((errors) => {
+        Logger.log("unable to delabel all messages that failed to archive");
+        errors.forEach(({ message }) => {
+          Logger.log(message);
+        });
+      });
+    });
   }
 };
 
